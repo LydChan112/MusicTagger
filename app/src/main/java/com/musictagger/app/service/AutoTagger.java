@@ -84,6 +84,22 @@ public final class AutoTagger {
             FilenameParser.Guess fileGuess = FilenameParser.parse(song.displayName);
             String query = fileGuess.query.isEmpty() ? ProviderHub.queryFor(title, artist) : fileGuess.query;
             List<Track> hits = ProviderHub.searchFor(query, guesses);
+            // A file that already carries tags should never look like "no match":
+            // fall back to its own tag data when the sources return nothing usable.
+            boolean weak = hits.isEmpty() || hits.get(0).score < 0.30f;
+            if (weak && !title.isEmpty()) {
+                Track local = new Track();
+                local.source = "本地标签";
+                local.id = "";
+                local.title = title;
+                local.artist = artist;
+                local.album = song.album == null ? "" : song.album;
+                local.score = 1f;
+                List<Track> merged = new ArrayList<>();
+                merged.add(local);
+                merged.addAll(hits);
+                hits = merged;
+            }
             return new MatchOutcome(hits, title, artist, song.hasArtwork, null);
         } catch (Throwable e) {
             Diag.error("搜索", e);

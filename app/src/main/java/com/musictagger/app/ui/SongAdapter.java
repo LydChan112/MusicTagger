@@ -151,6 +151,8 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
             name = f.getName() == null ? "" : f.getName();
         }
         holder.binding.title.setText(name);
+        com.musictagger.app.util.LocalCoverLoader.load(holder.itemView.getContext(),
+                f.getUri(), holder.binding.cover);
         Long length = sizes == null ? null : sizes.get(key);
         String sizeText = length != null && length > 0
                 ? Formatter.formatShortFileSize(holder.itemView.getContext(), length) : "";
