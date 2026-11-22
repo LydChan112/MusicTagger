@@ -121,53 +121,59 @@ public class MainActivity extends AppCompatActivity {
 
     private void load(Uri uri) {
         treeUri = uri;
-
-        // Show the previous scan immediately, then refresh in the background.
-        List<DocumentFile> cached = SafStore.readCache(this, uri);
-        if (!cached.isEmpty()) {
-            songs.clear();
-            songs.addAll(sortByName(cached));
-            adapter.notifyDataSetChanged();
-            showEmpty(false);
-        }
-
         setBusy(true);
+
+        // Reading the cache and starting the scan both touch the provider, so keep them
+        // off the main thread; rows are only touched in the posted callbacks.
         final List<DocumentFile> fresh = java.util.Collections.synchronizedList(new ArrayList<>());
         final long[] lastUpdate = {0};
-        SafStore.scanTree(this, uri, new SafStore.ScanListener() {
-            @Override
-            public void onFile(DocumentFile file) {
-                fresh.add(file);
-                long now = System.currentTimeMillis();
-                if (now - lastUpdate[0] > 200) {
-                    lastUpdate[0] = now;
-                    final int found = fresh.size();
-                    main.post(() -> binding.toolbar.setSubtitle("已找到 " + found + " 首"));
-                }
-            }
-
-            @Override
-            public void onDone(int total) {
-                final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
+        io.execute(() -> {
+            List<DocumentFile> cached = SafStore.readCache(this, uri);
+            if (!cached.isEmpty()) {
+                final List<DocumentFile> cachedSorted = sortByName(cached);
                 main.post(() -> {
-                    setBusy(false);
-                    binding.toolbar.setSubtitle(null);
-                    if (sorted.isEmpty()) {
-                        if (cached.isEmpty()) {
-                            showEmpty(true);
-                            snack("这个文件夹里没有找到音频文件");
-                        }
-                    } else {
-                        songs.clear();
-                        songs.addAll(sorted);
-                        adapter.notifyDataSetChanged();
-                        showEmpty(false);
-                        snack("已加载 " + sorted.size() + " 首歌曲");
-                    }
-                    updateSelectionUi();
-                    SafStore.writeCache(MainActivity.this, uri, sorted);
+                    songs.clear();
+                    songs.addAll(cachedSorted);
+                    adapter.notifyDataSetChanged();
+                    showEmpty(false);
                 });
             }
+
+            SafStore.scanTree(this, uri, new SafStore.ScanListener() {
+                @Override
+                public void onFile(DocumentFile file) {
+                    fresh.add(file);
+                    long now = System.currentTimeMillis();
+                    if (now - lastUpdate[0] > 200) {
+                        lastUpdate[0] = now;
+                        final int found = fresh.size();
+                        main.post(() -> binding.toolbar.setSubtitle("已找到 " + found + " 首"));
+                    }
+                }
+
+                @Override
+                public void onDone(int total) {
+                    final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
+                    io.execute(() -> SafStore.writeCache(MainActivity.this, uri, sorted));
+                    main.post(() -> {
+                        setBusy(false);
+                        binding.toolbar.setSubtitle(null);
+                        if (sorted.isEmpty()) {
+                            if (cached.isEmpty()) {
+                                showEmpty(true);
+                                snack("这个文件夹里没有找到音频文件");
+                            }
+                        } else {
+                            songs.clear();
+                            songs.addAll(sorted);
+                            adapter.notifyDataSetChanged();
+                            showEmpty(false);
+                            snack("已加载 " + sorted.size() + " 首歌曲");
+                        }
+                        updateSelectionUi();
+                    });
+                }
+            });
         });
     }
 

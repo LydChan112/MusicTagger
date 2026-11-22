@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Two-phase batch flow: search everything first, show the matches with covers,
@@ -227,7 +228,14 @@ public class MatchReviewActivity extends AppCompatActivity {
             return;
         }
         writing = true;
-        binding.btnWrite.setEnabled(false);
+        cancelled = false;
+        binding.btnWrite.setEnabled(true);
+        binding.btnWrite.setText("停止");
+        binding.btnWrite.setOnClickListener(v -> {
+            cancelled = true;
+            binding.btnWrite.setEnabled(false);
+            binding.btnWrite.setText("正在停止…");
+        });
         binding.progress.setIndeterminate(false);
         binding.progress.setMax(ready.size());
         binding.progress.setProgress(0);
@@ -237,29 +245,69 @@ public class MatchReviewActivity extends AppCompatActivity {
             int ok = 0;
             int fail = 0;
             final StringBuilder errors = new StringBuilder();
-            for (int i = 0; i < ready.size() && !cancelled; i++) {
-                final MatchItem item = ready.get(i);
-                final int index = i + 1;
-                main.post(() -> binding.summary.setText(
-                        getString(R.string.writing_n, index, ready.size()) + " · " + item.fileName));
-                AutoTagger.Result result = AutoTagger.write(this, BatchSession.treeUri(),
-                        item.file, item.chosenTrack(), null);
-                if (result.ok) {
-                    ok++;
-                    item.note = "已写入";
-                } else {
-                    fail++;
-                    errors.append(item.fileName).append("：").append(result.message).append('\n');
+            ExecutorService writePool = Executors.newCachedThreadPool();
+            try {
+                for (int i = 0; i < ready.size() && !cancelled; i++) {
+                    final MatchItem item = ready.get(i);
+                    final int index = i + 1;
+                    main.post(() -> binding.summary.setText(
+                            getString(R.string.writing_n, index, ready.size()) + " · " + item.fileName));
+
+                    Future<AutoTagger.Result> future = writePool.submit(() ->
+                            AutoTagger.write(this, BatchSession.treeUri(), item.file, item.chosenTrack(),
+                                    new AutoTagger.Progress() {
+                                        @Override
+                                        public void onStep(String step) {
+                                            main.post(() -> binding.summary.setText(
+                                                    getString(R.string.writing_n, index, ready.size())
+                                                            + " · " + step));
+                                        }
+
+                                        @Override
+                                        public boolean isCancelled() {
+                                            return cancelled;
+                                        }
+                                    }));
+                    AutoTagger.Result result;
+                    try {
+                        result = future.get(60, TimeUnit.SECONDS);
+                    } catch (java.util.concurrent.TimeoutException e) {
+                        future.cancel(true);
+                        result = new AutoTagger.Result();
+                        result.message = "处理超时（60 秒）";
+                    } catch (Exception e) {
+                        future.cancel(true);
+                        result = new AutoTagger.Result();
+                        result.message = e.getClass().getSimpleName();
+                    }
+
+                    if (result.cancelled) {
+                        break;
+                    }
+                    if (result.ok) {
+                        ok++;
+                        item.note = "已写入";
+                    } else {
+                        fail++;
+                        errors.append(item.fileName).append("：").append(result.message).append('\n');
+                    }
+                    final int done = index;
+                    main.post(() -> binding.progress.setProgress(done));
                 }
-                final int done = index;
-                main.post(() -> binding.progress.setProgress(done));
+            } finally {
+                writePool.shutdownNow();
             }
             final int okFinal = ok;
             final int failFinal = fail;
-            final String detail = errors.toString();
+            final String detail = errors.length() > 2000
+                    ? errors.substring(0, 2000) + "\n…" : errors.toString();
             main.post(() -> {
                 writing = false;
                 binding.progress.setVisibility(View.GONE);
+                binding.btnWrite.setOnClickListener(v -> writeAll());
+                binding.btnWrite.setEnabled(true);
+                binding.btnWrite.setText(getString(R.string.write_selected_n, 0));
+                binding.summary.setText(R.string.review_hint);
                 new MaterialAlertDialogBuilder(MatchReviewActivity.this)
                         .setTitle(R.string.write_done)
                         .setMessage(getString(R.string.write_summary, okFinal, failFinal)
