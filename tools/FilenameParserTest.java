@@ -22,10 +22,10 @@ public class FilenameParserTest {
         check("Jay-Z - 99 Problems.mp3", "99 Problems", "Jay-Z");
         check("99 Problems.mp3", "99 Problems", "");
         check("1-01 周杰伦 - 晴天.mp3", "晴天", "周杰伦");
-        check("@流行@华语@周杰伦 - 晴天.mp3", "晴天", "周杰伦");
-        check("流行@华语@周杰伦 - 晴天.mp3", "晴天", "周杰伦");
-        check("@周杰伦@叶惠美@晴天.mp3", "晴天", "");
-        check("@a@b@晴天.mp3", "晴天", "");
+        check("小芸音乐@1401530822@Push My Luck@The Chainsmokers.mp3", "Push My Luck", "The Chainsmokers");
+        check("小芸音乐@1401530822@晴天@周杰伦.mp3", "晴天", "周杰伦");
+        check("小芸音乐@1401530822@晴天.mp3", "小芸音乐@1401530822@晴天", "");
+        check("A@B@C@D@E.mp3", "A@B@C@D@E", "");
 
         // title - artist order must still be reachable through the swapped guess
         List<FilenameParser.Guess> variants = FilenameParser.variants("晴天 - 周杰伦.mp3");
