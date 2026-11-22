@@ -37,11 +37,11 @@ public final class Settings {
 
     public static int searchThreads(Context context) {
         int value = prefs(context).getInt(KEY_SEARCH_THREADS, DEFAULT_SEARCH_THREADS);
-        return Math.max(1, Math.min(4, value));
+        return Math.max(1, Math.min(5, value));
     }
 
     public static void setSearchThreads(Context context, int threads) {
-        prefs(context).edit().putInt(KEY_SEARCH_THREADS, Math.max(1, Math.min(4, threads))).apply();
+        prefs(context).edit().putInt(KEY_SEARCH_THREADS, Math.max(1, Math.min(5, threads))).apply();
     }
 
     public static int downloadThreads(Context context) {

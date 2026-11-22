@@ -33,7 +33,9 @@ public final class ProviderHub {
 
     private static final MusicProvider[] ALL = {NETEASE, KUGOU, QQ, ITUNES};
 
-    private static final ExecutorService SEARCH_POOL = Executors.newFixedThreadPool(5);
+    // Provider calls must not queue behind other files' searches, otherwise the
+    // per-search timeout would cancel work that never got a thread.
+    private static final ExecutorService SEARCH_POOL = Executors.newCachedThreadPool();
     private static volatile ExecutorService IO_POOL = Executors.newFixedThreadPool(3);
 
     /** Rebuilds the download pool; called at startup and when the setting changes. */
@@ -211,7 +213,7 @@ public final class ProviderHub {
         }
         List<Future<List<Track>>> futures = new ArrayList<>();
         try {
-            futures = SEARCH_POOL.invokeAll(tasks, 6, TimeUnit.SECONDS);
+            futures = SEARCH_POOL.invokeAll(tasks, 8, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

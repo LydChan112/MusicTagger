@@ -80,7 +80,7 @@
                         android:layout_height="wrap_content"
                         android:stepSize="1"
                         android:valueFrom="1"
-                        android:valueTo="4"
+                        android:valueTo="5"
                         app:labelBehavior="floating" />
 
                     <TextView
