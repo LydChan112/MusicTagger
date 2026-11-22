@@ -119,31 +119,60 @@ public class MainActivity extends AppCompatActivity {
 
     private void load(Uri uri) {
         treeUri = uri;
+
+        // Show the previous scan immediately, then refresh in the background.
+        List<DocumentFile> cached = SafStore.readCache(this, uri);
+        if (!cached.isEmpty()) {
+            songs.clear();
+            songs.addAll(sortByName(cached));
+            adapter.notifyDataSetChanged();
+            showEmpty(false);
+        }
+
         setBusy(true);
-        io.execute(() -> {
-            List<DocumentFile> found;
-            try {
-                found = SafStore.listAll(this, uri);
-            } catch (Exception e) {
-                found = new ArrayList<>();
-            }
-            Collator collator = Collator.getInstance(Locale.CHINA);
-            found.sort(Comparator.comparing(f -> f.getName() == null ? "" : f.getName(), collator));
-            final List<DocumentFile> result = found;
-            main.post(() -> {
-                setBusy(false);
-                songs.clear();
-                songs.addAll(result);
-                adapter.notifyDataSetChanged();
-                showEmpty(result.isEmpty());
-                updateSelectionUi();
-                if (result.isEmpty()) {
-                    snack("这个文件夹里没有找到音频文件");
-                } else {
-                    snack("已加载 " + result.size() + " 首歌曲");
+        final List<DocumentFile> fresh = java.util.Collections.synchronizedList(new ArrayList<>());
+        final long[] lastUpdate = {0};
+        SafStore.scanTree(this, uri, new SafStore.ScanListener() {
+            @Override
+            public void onFile(DocumentFile file) {
+                fresh.add(file);
+                long now = System.currentTimeMillis();
+                if (now - lastUpdate[0] > 200) {
+                    lastUpdate[0] = now;
+                    final int found = fresh.size();
+                    main.post(() -> binding.toolbar.setSubtitle("已找到 " + found + " 首"));
                 }
-            });
+            }
+
+            @Override
+            public void onDone(int total) {
+                final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
+                main.post(() -> {
+                    setBusy(false);
+                    binding.toolbar.setSubtitle(null);
+                    if (sorted.isEmpty()) {
+                        if (cached.isEmpty()) {
+                            showEmpty(true);
+                            snack("这个文件夹里没有找到音频文件");
+                        }
+                    } else {
+                        songs.clear();
+                        songs.addAll(sorted);
+                        adapter.notifyDataSetChanged();
+                        showEmpty(false);
+                        snack("已加载 " + sorted.size() + " 首歌曲");
+                    }
+                    updateSelectionUi();
+                    SafStore.writeCache(MainActivity.this, uri, sorted);
+                });
+            }
         });
+    }
+
+    private List<DocumentFile> sortByName(List<DocumentFile> input) {
+        Collator collator = Collator.getInstance(Locale.CHINA);
+        input.sort(Comparator.comparing(f -> f.getName() == null ? "" : f.getName(), collator));
+        return input;
     }
 
     private void openEditor(DocumentFile file) {
