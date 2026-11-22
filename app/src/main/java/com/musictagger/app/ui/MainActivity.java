@@ -56,8 +56,10 @@ public class MainActivity extends AppCompatActivity {
 
         adapter = new SongAdapter(songs, new SongAdapter.Listener() {
             @Override
-            public void onClick(DocumentFile file) {
-                if (adapter.isSelectionMode()) {
+            public void onClick(DocumentFile file, int position) {
+                if (adapter.isRangeMode()) {
+                    handleRangeClick(position);
+                } else if (adapter.isSelectionMode()) {
                     adapter.toggle(file);
                     updateSelectionUi();
                 } else {
@@ -66,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onLongClick(DocumentFile file) {
+            public void onLongClick(DocumentFile file, int position) {
                 if (!adapter.isSelectionMode()) {
                     adapter.setSelectionMode(true);
                     adapter.toggle(file);
@@ -190,12 +192,29 @@ public class MainActivity extends AppCompatActivity {
     private void updateSelectionUi() {
         boolean selecting = adapter.isSelectionMode();
         if (selecting) {
-            binding.toolbar.setTitle(getString(R.string.selected_count, adapter.selectedCount()));
+            if (adapter.isRangeMode()) {
+                binding.toolbar.setTitle(adapter.getAnchor() < 0 ? "点第一首" : "点最后一首");
+            } else {
+                binding.toolbar.setTitle(getString(R.string.selected_count, adapter.selectedCount()));
+            }
         } else {
             binding.toolbar.setTitle(R.string.app_name);
         }
         binding.fab.setVisibility(selecting ? View.GONE : View.VISIBLE);
         invalidateOptionsMenu();
+    }
+
+    private void handleRangeClick(int position) {
+        if (adapter.getAnchor() < 0) {
+            adapter.setAnchor(position);
+            snack("已标记起点，再点最后一首");
+            updateSelectionUi();
+            return;
+        }
+        adapter.selectRange(adapter.getAnchor(), position);
+        adapter.setRangeMode(false);
+        snack("已选中该范围");
+        updateSelectionUi();
     }
 
     private void exitSelection() {
@@ -262,6 +281,7 @@ public class MainActivity extends AppCompatActivity {
         menu.findItem(R.id.action_settings).setVisible(!selecting);
         menu.findItem(R.id.action_theme).setVisible(!selecting);
         menu.findItem(R.id.action_select_all).setVisible(selecting);
+        menu.findItem(R.id.action_range).setVisible(selecting);
         menu.findItem(R.id.action_batch).setVisible(selecting);
         menu.findItem(R.id.action_cancel).setVisible(selecting);
         menu.findItem(R.id.action_theme).setChecked(isDark());
@@ -284,6 +304,12 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_select_all) {
             boolean all = adapter.selectedCount() == songs.size();
             adapter.selectAll(!all);
+            updateSelectionUi();
+            return true;
+        }
+        if (id == R.id.action_range) {
+            adapter.setRangeMode(true);
+            snack(adapter.getAnchor() >= 0 ? "从已选中的第一首开始，再点最后一首" : "点第一首，再点最后一首");
             updateSelectionUi();
             return true;
         }

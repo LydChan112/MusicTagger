@@ -42,6 +42,7 @@ public final class FilenameParser {
 
     public static Guess parse(String fileName) {
         String base = stripExtension(fileName == null ? "" : fileName);
+        base = stripAtPrefixes(base);
         String raw = base.trim();
         int underscore = raw.indexOf('_');
         if (underscore > 0 && underscore == raw.lastIndexOf('_') && raw.indexOf('-') < 0) {
@@ -108,6 +109,32 @@ public final class FilenameParser {
     private static String stripExtension(String name) {
         int i = name.lastIndexOf('.');
         return i > 0 ? name.substring(0, i) : name;
+    }
+
+    /**
+     * Drops the first two '@'-marked prefixes, e.g. "@pop@cn@晴天 - 周杰伦" -> "晴天 - 周杰伦".
+     * A leading '@' means each prefix carries its own marker, so two prefixes plus the
+     * marker before the real content have to be consumed; otherwise the '@' acts as a
+     * separator and only two of them are consumed.
+     */
+    public static String stripAtPrefixes(String name) {
+        if (name == null || name.indexOf('@') < 0) {
+            return name == null ? "" : name;
+        }
+        String s = name.replace('＠', '@').trim();
+        boolean leading = s.startsWith("@");
+        int target = leading ? 3 : 2;
+        int seen = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '@') {
+                seen++;
+                if (seen == target) {
+                    String rest = s.substring(i + 1).trim();
+                    return rest.isEmpty() ? s : rest;
+                }
+            }
+        }
+        return s;
     }
 
     private static String clean(String s) {

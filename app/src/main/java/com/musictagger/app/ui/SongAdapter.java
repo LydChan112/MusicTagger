@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.text.format.Formatter;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
@@ -25,15 +26,17 @@ import java.util.Set;
 public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
 
     public interface Listener {
-        void onClick(DocumentFile file);
+        void onClick(DocumentFile file, int position);
 
-        void onLongClick(DocumentFile file);
+        void onLongClick(DocumentFile file, int position);
     }
 
     private final List<DocumentFile> data;
     private final Listener listener;
     private final Set<String> selected = new HashSet<>();
     private boolean selectionMode;
+    private boolean rangeMode;
+    private int anchor = -1;
 
     public SongAdapter(List<DocumentFile> data, Listener listener) {
         this.data = data;
@@ -46,10 +49,51 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
 
     public void setSelectionMode(boolean on) {
         selectionMode = on;
+        rangeMode = false;
+        anchor = -1;
         if (!on) {
             selected.clear();
         }
         notifyDataSetChanged();
+    }
+
+    public boolean isRangeMode() {
+        return rangeMode;
+    }
+
+    /** Entering range mode anchors on the first already-selected row, if any. */
+    public void setRangeMode(boolean on) {
+        rangeMode = on;
+        anchor = on ? firstSelectedPosition() : -1;
+        notifyDataSetChanged();
+    }
+
+    public int getAnchor() {
+        return anchor;
+    }
+
+    public void setAnchor(int position) {
+        anchor = position;
+        notifyDataSetChanged();
+    }
+
+    public void selectRange(int from, int to) {
+        int low = Math.min(from, to);
+        int high = Math.max(from, to);
+        for (int i = low; i <= high && i < data.size(); i++) {
+            selected.add(data.get(i).getUri().toString());
+        }
+        anchor = -1;
+        notifyDataSetChanged();
+    }
+
+    private int firstSelectedPosition() {
+        for (int i = 0; i < data.size(); i++) {
+            if (selected.contains(data.get(i).getUri().toString())) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public void toggle(DocumentFile f) {
@@ -100,25 +144,41 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
         String ext = SafStore.extensionOf(name).toUpperCase();
         holder.binding.subtitle.setText(ext.isEmpty() ? size : ext + "  ·  " + size);
 
-        boolean checked = selected.contains(f.getUri().toString());
+        String key = f.getUri().toString();
+        boolean checked = selected.contains(key);
+        boolean isAnchor = rangeMode && position == anchor;
         Context ctx = holder.itemView.getContext();
-        holder.binding.check.setVisibility(selectionMode ? android.view.View.VISIBLE : android.view.View.GONE);
+
+        holder.binding.check.setVisibility(selectionMode ? View.VISIBLE : View.GONE);
         holder.binding.check.setChecked(selectionMode && checked);
-        holder.binding.chevron.setVisibility(selectionMode ? android.view.View.GONE : android.view.View.VISIBLE);
+        holder.binding.chevron.setVisibility(selectionMode ? View.GONE : View.VISIBLE);
 
         MaterialCardView card = (MaterialCardView) holder.itemView;
+        boolean highlight = isAnchor || (selectionMode && checked);
         card.setStrokeWidth((int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP,
-                selectionMode && checked ? 2 : 1, ctx.getResources().getDisplayMetrics()));
-        card.setStrokeColor(selectionMode && checked
+                highlight ? 2 : 1, ctx.getResources().getDisplayMetrics()));
+        card.setStrokeColor(highlight
                 ? ContextCompat.getColor(ctx, R.color.brand_primary)
                 : ContextCompat.getColor(ctx, R.color.outline));
-        card.setCardBackgroundColor(selectionMode && checked
-                ? ContextCompat.getColor(ctx, R.color.surface_variant)
-                : Color.TRANSPARENT);
+        if (isAnchor) {
+            card.setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.brand_container));
+        } else if (selectionMode && checked) {
+            card.setCardBackgroundColor(ContextCompat.getColor(ctx, R.color.surface_variant));
+        } else {
+            card.setCardBackgroundColor(Color.TRANSPARENT);
+        }
 
-        holder.itemView.setOnClickListener(v -> listener.onClick(f));
+        holder.itemView.setOnClickListener(v -> {
+            int pos = holder.getBindingAdapterPosition();
+            if (pos != RecyclerView.NO_POSITION) {
+                listener.onClick(f, pos);
+            }
+        });
         holder.itemView.setOnLongClickListener(v -> {
-            listener.onLongClick(f);
+            int pos = holder.getBindingAdapterPosition();
+            if (pos != RecyclerView.NO_POSITION) {
+                listener.onLongClick(f, pos);
+            }
             return true;
         });
     }
