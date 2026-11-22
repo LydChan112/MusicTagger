@@ -23,6 +23,11 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/action_scan"
+        android:title="@string/scan_now"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/action_network"
         android:title="@string/network_diag"
         app:showAsAction="never" />

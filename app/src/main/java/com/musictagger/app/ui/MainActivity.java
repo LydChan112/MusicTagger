@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private SongAdapter adapter;
     private ActivityResultLauncher<Uri> picker;
     private Uri treeUri;
+    private boolean scanning;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         if (saved == null) {
             showEmpty(true);
         } else {
-            load(saved);
+            loadCached(saved);
         }
     }
 
@@ -118,68 +119,77 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
         SafStore.saveTree(this, uri);
-        load(uri);
+        loadCached(uri);
+        scanNow(uri);
     }
 
-    private void load(Uri uri) {
+    /** Shows whatever the previous scan stored; never touches the tree. */
+    private void loadCached(Uri uri) {
         treeUri = uri;
         sizes.clear();
         names.clear();
         setBusy(true);
-
-        // Reading the cache and starting the scan both touch the provider, so keep them
-        // off the main thread; rows are only touched in the posted callbacks.
-        final List<DocumentFile> fresh = java.util.Collections.synchronizedList(new ArrayList<>());
-        final long[] lastUpdate = {0};
         io.execute(() -> {
             List<DocumentFile> cached = SafStore.readCache(this, uri, names, sizes);
-            if (!cached.isEmpty()) {
-                final List<DocumentFile> cachedSorted = sortByName(cached);
-                main.post(() -> {
-                    songs.clear();
-                    songs.addAll(cachedSorted);
-                    adapter.notifyDataSetChanged();
-                    showEmpty(false);
-                });
-            }
-
-            SafStore.scanTree(this, uri, new SafStore.ScanListener() {
-                @Override
-                public void onFile(DocumentFile file, String name, long size) {
-                    fresh.add(file);
-                    sizes.put(file.getUri().toString(), size);
-                    names.put(file.getUri().toString(), name);
-                    long now = System.currentTimeMillis();
-                    if (now - lastUpdate[0] > 200) {
-                        lastUpdate[0] = now;
-                        final int found = fresh.size();
-                        main.post(() -> binding.toolbar.setSubtitle("已找到 " + found + " 首"));
-                    }
-                }
-
-                @Override
-                public void onDone(int total) {
-                    final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
-                    io.execute(() -> SafStore.writeCache(MainActivity.this, uri, sorted, names, sizes));
-                    main.post(() -> {
-                        setBusy(false);
-                        binding.toolbar.setSubtitle(null);
-                        if (sorted.isEmpty()) {
-                            if (cached.isEmpty()) {
-                                showEmpty(true);
-                                snack("这个文件夹里没有找到音频文件");
-                            }
-                        } else {
-                            songs.clear();
-                            songs.addAll(sorted);
-                            adapter.notifyDataSetChanged();
-                            showEmpty(false);
-                            snack("已加载 " + sorted.size() + " 首歌曲");
-                        }
-                        updateSelectionUi();
-                    });
+            final List<DocumentFile> sorted = sortByName(cached);
+            main.post(() -> {
+                setBusy(false);
+                songs.clear();
+                songs.addAll(sorted);
+                adapter.notifyDataSetChanged();
+                showEmpty(sorted.isEmpty());
+                updateSelectionUi();
+                if (sorted.isEmpty()) {
+                    snack("还没有扫描记录，点右上角「扫描」开始读取文件夹");
                 }
             });
+        });
+    }
+
+    /** Full tree walk, started only from the toolbar. */
+    private void scanNow(Uri uri) {
+        if (uri == null || scanning) {
+            return;
+        }
+        scanning = true;
+        setBusy(true);
+        invalidateOptionsMenu();
+        sizes.clear();
+        names.clear();
+
+        final List<DocumentFile> fresh = java.util.Collections.synchronizedList(new ArrayList<>());
+        final long[] lastUpdate = {0};
+        SafStore.scanTree(this, uri, new SafStore.ScanListener() {
+            @Override
+            public void onFile(DocumentFile file, String name, long size) {
+                fresh.add(file);
+                sizes.put(file.getUri().toString(), size);
+                names.put(file.getUri().toString(), name);
+                long now = System.currentTimeMillis();
+                if (now - lastUpdate[0] > 200) {
+                    lastUpdate[0] = now;
+                    final int found = fresh.size();
+                    main.post(() -> binding.toolbar.setSubtitle("已找到 " + found + " 首"));
+                }
+            }
+
+            @Override
+            public void onDone(int total) {
+                final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
+                io.execute(() -> SafStore.writeCache(MainActivity.this, uri, sorted, names, sizes));
+                main.post(() -> {
+                    scanning = false;
+                    setBusy(false);
+                    binding.toolbar.setSubtitle(null);
+                    songs.clear();
+                    songs.addAll(sorted);
+                    adapter.notifyDataSetChanged();
+                    showEmpty(sorted.isEmpty());
+                    updateSelectionUi();
+                    snack(sorted.isEmpty() ? "这个文件夹里没有找到音频文件"
+                            : "已加载 " + sorted.size() + " 首歌曲");
+                });
+            }
         });
     }
 
@@ -292,6 +302,8 @@ public class MainActivity extends AppCompatActivity {
         boolean selecting = adapter != null && adapter.isSelectionMode();
         menu.findItem(R.id.action_select).setVisible(!selecting && !songs.isEmpty());
         menu.findItem(R.id.action_network).setVisible(!selecting);
+        menu.findItem(R.id.action_scan).setVisible(!selecting);
+        menu.findItem(R.id.action_scan).setEnabled(!scanning);
         menu.findItem(R.id.action_settings).setVisible(!selecting);
         menu.findItem(R.id.action_theme).setVisible(!selecting);
         menu.findItem(R.id.action_select_all).setVisible(selecting);
@@ -333,6 +345,14 @@ public class MainActivity extends AppCompatActivity {
         }
         if (id == R.id.action_cancel) {
             exitSelection();
+            return true;
+        }
+        if (id == R.id.action_scan) {
+            if (treeUri == null) {
+                picker.launch(null);
+            } else {
+                scanNow(treeUri);
+            }
             return true;
         }
         if (id == R.id.action_network) {
@@ -396,7 +416,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (songs.isEmpty() && treeUri != null) {
-            load(treeUri);
+            loadCached(treeUri);
         }
     }
 

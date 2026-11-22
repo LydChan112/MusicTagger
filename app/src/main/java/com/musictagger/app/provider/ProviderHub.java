@@ -36,20 +36,22 @@ public final class ProviderHub {
     // Provider calls must not queue behind other files' searches, otherwise the
     // per-search timeout would cancel work that never got a thread.
     private static final ExecutorService SEARCH_POOL = Executors.newCachedThreadPool();
-    private static volatile ExecutorService IO_POOL = Executors.newFixedThreadPool(3);
+    private static final ExecutorService IO_POOL = Executors.newCachedThreadPool();
 
-    /** Rebuilds the download pool; called at startup and when the setting changes. */
+    /** Bounds how many cover/lyric downloads may run at once, across all callers. */
+    private static volatile java.util.concurrent.Semaphore netSemaphore =
+            new java.util.concurrent.Semaphore(3, true);
+    private static int netPermits = 3;
+
+    /** Rebuilds the download budget; called at startup and when the setting changes. */
     public static synchronized void setDownloadThreads(int threads) {
         int size = Math.max(1, Math.min(8, threads));
-        if (IO_POOL instanceof java.util.concurrent.ThreadPoolExecutor) {
-            int current = ((java.util.concurrent.ThreadPoolExecutor) IO_POOL).getCorePoolSize();
-            if (current == size) {
-                return;
-            }
+        if (size == netPermits) {
+            return;
         }
-        ExecutorService old = IO_POOL;
-        IO_POOL = Executors.newFixedThreadPool(size);
-        old.shutdown();
+        netPermits = size;
+        // In-flight tasks keep their permits on the old instance; new ones use this.
+        netSemaphore = new java.util.concurrent.Semaphore(size, true);
     }
 
     /** null = not probed yet (treated as usable). */
@@ -246,9 +248,28 @@ public final class ProviderHub {
     // ---------- cover / lyrics with fallbacks ----------
 
     public static byte[] cover(Track best, String title, String artist) {
-        // Everything written into a file goes through the 500 KB budget.
+        // Everything written into a file goes through the 1 MB budget.
         // Health flags only skip search work; a cover is worth one bounded attempt.
-        return com.musictagger.app.util.CoverCompressor.limit(coverRaw(best, title, artist));
+        java.util.concurrent.Semaphore held = acquire();
+        try {
+            return com.musictagger.app.util.CoverCompressor.limit(coverRaw(best, title, artist));
+        } finally {
+            if (held != null) {
+                held.release();
+            }
+        }
+    }
+
+    /** @return the semaphore that was acquired, or null when interrupted. */
+    private static java.util.concurrent.Semaphore acquire() {
+        java.util.concurrent.Semaphore sem = netSemaphore;
+        try {
+            sem.acquire();
+            return sem;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
     }
 
     private static byte[] coverRaw(Track best, String title, String artist) {
@@ -293,6 +314,17 @@ public final class ProviderHub {
     }
 
     public static Lyrics lyrics(Track best, String title, String artist, int durationSec) {
+        java.util.concurrent.Semaphore held = acquire();
+        try {
+            return lyricsRaw(best, title, artist, durationSec);
+        } finally {
+            if (held != null) {
+                held.release();
+            }
+        }
+    }
+
+    private static Lyrics lyricsRaw(Track best, String title, String artist, int durationSec) {
         if (best != null) {
             try {
                 Lyrics l = providerFor(best).lyrics(best);

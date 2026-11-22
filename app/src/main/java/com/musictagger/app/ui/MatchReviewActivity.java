@@ -248,24 +248,34 @@ public class MatchReviewActivity extends AppCompatActivity {
         binding.progress.setVisibility(View.VISIBLE);
 
         io.execute(() -> {
-            int ok = 0;
-            int fail = 0;
-            final StringBuilder errors = new StringBuilder();
-            ExecutorService writePool = Executors.newCachedThreadPool();
-            try {
-                for (int i = 0; i < ready.size() && !cancelled; i++) {
-                    final MatchItem item = ready.get(i);
-                    final int index = i + 1;
-                    main.post(() -> binding.summary.setText(
-                            getString(R.string.writing_n, index, ready.size()) + " · " + item.fileName));
+            final java.util.concurrent.atomic.AtomicInteger okCount =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            final java.util.concurrent.atomic.AtomicInteger failCount =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            final java.util.concurrent.atomic.AtomicInteger finished =
+                    new java.util.concurrent.atomic.AtomicInteger();
+            final List<String> errors = java.util.Collections.synchronizedList(new ArrayList<>());
 
-                    Future<AutoTagger.Result> future = writePool.submit(() ->
+            int concurrency = Math.max(1, Math.min(4, Settings.downloadThreads(this)));
+            ExecutorService workers = Executors.newFixedThreadPool(concurrency);
+            ExecutorService inner = Executors.newCachedThreadPool();
+
+            for (final MatchItem item : ready) {
+                workers.execute(() -> {
+                    if (cancelled) {
+                        return;
+                    }
+                    main.post(() -> binding.summary.setText(
+                            getString(R.string.writing_n, finished.get() + 1, ready.size())
+                                    + " · " + item.fileName));
+
+                    Future<AutoTagger.Result> future = inner.submit(() ->
                             AutoTagger.write(this, BatchSession.treeUri(), item.file, item.chosenTrack(),
                                     new AutoTagger.Progress() {
                                         @Override
                                         public void onStep(String step) {
                                             main.post(() -> binding.summary.setText(
-                                                    getString(R.string.writing_n, index, ready.size())
+                                                    getString(R.string.writing_n, finished.get() + 1, ready.size())
                                                             + " · " + step));
                                         }
 
@@ -287,26 +297,36 @@ public class MatchReviewActivity extends AppCompatActivity {
                         result.message = e.getClass().getSimpleName();
                     }
 
-                    if (result.cancelled) {
-                        break;
-                    }
                     if (result.ok) {
-                        ok++;
+                        okCount.incrementAndGet();
                         item.note = "已写入";
-                    } else {
-                        fail++;
-                        errors.append(item.fileName).append("：").append(result.message).append('\n');
+                    } else if (!result.cancelled) {
+                        failCount.incrementAndGet();
+                        errors.add(item.fileName + "：" + result.message);
                     }
-                    final int done = index;
-                    main.post(() -> binding.progress.setProgress(done));
-                }
-            } finally {
-                writePool.shutdownNow();
+                    final int done = finished.incrementAndGet();
+                    main.post(() -> binding.progress.setProgress(Math.min(done, ready.size())));
+                });
             }
-            final int okFinal = ok;
-            final int failFinal = fail;
-            final String detail = errors.length() > 2000
-                    ? errors.substring(0, 2000) + "\n…" : errors.toString();
+
+            workers.shutdown();
+            try {
+                workers.awaitTermination(2, TimeUnit.HOURS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            inner.shutdownNow();
+
+            final int okFinal = okCount.get();
+            final int failFinal = failCount.get();
+            final StringBuilder joined = new StringBuilder();
+            synchronized (errors) {
+                for (String line : errors) {
+                    joined.append(line).append('\n');
+                }
+            }
+            final String detail = joined.length() > 2000
+                    ? joined.substring(0, 2000) + "\n…" : joined.toString();
             main.post(() -> {
                 writing = false;
                 binding.progress.setVisibility(View.GONE);
