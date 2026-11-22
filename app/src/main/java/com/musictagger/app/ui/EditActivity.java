@@ -36,7 +36,6 @@ import com.musictagger.app.tag.TagIO;
 import com.musictagger.app.util.Diag;
 import com.musictagger.app.util.FilenameParser;
 import com.musictagger.app.util.FormatSniffer;
-import com.musictagger.app.util.Settings;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -278,7 +277,7 @@ public class EditActivity extends AppCompatActivity {
         snack("正在按文件名搜索并匹配…");
         setStatus("搜索中…");
         io.execute(() -> {
-            List<Track> hits = ProviderHub.searchFor(query, guesses, song.durationSec, Settings.durationTolerance(this));
+            List<Track> hits = ProviderHub.searchFor(query, guesses);
             setStatus("下载封面与歌词…");
             Track best = hits.isEmpty() ? null : hits.get(0);
             if (best == null || best.score < 0.30f) {
@@ -313,7 +312,7 @@ public class EditActivity extends AppCompatActivity {
         final String query = buildQuery();
         setBusy(true);
         io.execute(() -> {
-            List<Track> hits = ProviderHub.searchFor(query, guesses, song.durationSec, Settings.durationTolerance(this));
+            List<Track> hits = ProviderHub.searchFor(query, guesses);
             main.post(() -> {
                 setBusy(false);
                 if (hits.isEmpty()) {

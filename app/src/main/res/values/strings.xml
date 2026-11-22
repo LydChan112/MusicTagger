@@ -46,8 +46,6 @@
     <string name="write_summary">成功 %1$d 首，失败 %2$d 首</string>
     <string name="settings">设置</string>
     <string name="settings_search_section">匹配</string>
-    <string name="settings_duration">时长容差</string>
-    <string name="settings_duration_hint">搜索结果与本地文件时长相差超过该值时会被过滤掉，用于排除翻唱、现场版、伴奏等错误匹配。</string>
     <string name="settings_search_threads">搜索并行数</string>
     <string name="settings_search_threads_hint">批量匹配时同时处理几首歌曲，数值越大越快，也越容易触发接口限流。</string>
     <string name="settings_download_threads">下载并行数</string>

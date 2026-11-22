@@ -3,11 +3,9 @@ package com.musictagger.app.ui;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.ArrayAdapter;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.musictagger.app.R;
 import com.musictagger.app.databinding.ActivitySettingsBinding;
 import com.musictagger.app.provider.ProviderHub;
 import com.musictagger.app.util.CoverLoader;
@@ -19,10 +17,6 @@ public class SettingsActivity extends AppCompatActivity {
 
     private ActivitySettingsBinding binding;
 
-    private static final String[] DURATION_LABELS = {
-            "关闭（不按时长过滤）", "±3 秒", "±5 秒", "±10 秒", "±20 秒", "±30 秒"
-    };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,29 +24,11 @@ public class SettingsActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         binding.toolbar.setNavigationOnClickListener(v -> finish());
 
-        setupDuration();
         setupSliders();
 
         binding.githubUrl.setText(REPO_URL.replace("https://", ""));
         binding.rowGithub.setOnClickListener(v -> openRepo());
         binding.version.setText(versionName());
-    }
-
-    private void setupDuration() {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_list_item_1, DURATION_LABELS);
-        binding.duration.setAdapter(adapter);
-        int current = Settings.durationTolerance(this);
-        int index = 0;
-        for (int i = 0; i < Settings.DURATION_OPTIONS.length; i++) {
-            if (Settings.DURATION_OPTIONS[i] == current) {
-                index = i;
-                break;
-            }
-        }
-        binding.duration.setText(DURATION_LABELS[index], false);
-        binding.duration.setOnItemClickListener((parent, view, position, id) ->
-                Settings.setDurationTolerance(this, Settings.DURATION_OPTIONS[position]));
     }
 
     private void setupSliders() {

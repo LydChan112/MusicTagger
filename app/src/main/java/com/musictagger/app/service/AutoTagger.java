@@ -80,8 +80,7 @@ public final class AutoTagger {
             }
             FilenameParser.Guess fileGuess = FilenameParser.parse(song.displayName);
             String query = fileGuess.query.isEmpty() ? ProviderHub.queryFor(title, artist) : fileGuess.query;
-            List<Track> hits = ProviderHub.searchFor(query, guesses, song.durationSec,
-                    com.musictagger.app.util.Settings.durationTolerance(ctx));
+            List<Track> hits = ProviderHub.searchFor(query, guesses);
             return new MatchOutcome(hits, title, artist, null);
         } catch (Throwable e) {
             Diag.error("搜索", e);
