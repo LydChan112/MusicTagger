@@ -27,6 +27,8 @@ public final class TagIO {
         Logger.getLogger("org.jaudiotagger").setLevel(Level.OFF);
     }
 
+    private static volatile String lastArtworkError = "";
+
     private TagIO() {
     }
 
@@ -138,6 +140,7 @@ public final class TagIO {
     }
 
     private static boolean writeArtwork(Tag tag, byte[] data) {
+        lastArtworkError = "";
         String mime = mimeOf(data);
         int[] size = ImageUtil.size(data);
         if (tag instanceof FlacTag) {
@@ -149,11 +152,25 @@ public final class TagIO {
                 images.add(new MetadataBlockDataPicture(data, 3, mime, "", size[0], size[1], 0, 0));
                 return true;
             } catch (Throwable e) {
+                lastArtworkError = "FLAC: " + describe(e);
                 com.musictagger.app.util.Diag.error("写入 FLAC 封面", e);
+                try {
+                    MetadataBlockDataPicture picture =
+                            new MetadataBlockDataPicture(data, 3, mime, "", size[0], size[1], 0, 0);
+                    tag.setField(picture);
+                    return true;
+                } catch (Throwable inner) {
+                    lastArtworkError = "FLAC: " + describe(inner);
+                    com.musictagger.app.util.Diag.error("写入 FLAC 封面(2)", inner);
+                    return false;
+                }
             }
         }
         try {
-            Artwork art = ArtworkFactory.getNew();
+            // StandardArtwork is the implementation verified on the JVM; the factory may
+            // hand back AndroidArtwork depending on a global option we do not control.
+            org.jaudiotagger.tag.images.StandardArtwork art =
+                    new org.jaudiotagger.tag.images.StandardArtwork();
             art.setMimeType(mime);
             art.setBinaryData(data);
             art.setWidth(size[0]);
@@ -162,9 +179,20 @@ public final class TagIO {
             tag.setField(art);
             return true;
         } catch (Throwable e) {
+            lastArtworkError = describe(e);
             com.musictagger.app.util.Diag.error("写入封面", e);
             return false;
         }
+    }
+
+    private static String describe(Throwable e) {
+        String msg = e.getMessage();
+        return e.getClass().getSimpleName() + (msg == null || msg.isEmpty() ? "" : ": " + msg);
+    }
+
+    /** Reason for the last artwork failure, empty when it succeeded. */
+    public static String lastArtworkError() {
+        return lastArtworkError == null ? "" : lastArtworkError;
     }
 
     private static void put(Tag tag, FieldKey key, String value) {

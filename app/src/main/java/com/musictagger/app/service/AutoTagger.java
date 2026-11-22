@@ -159,7 +159,9 @@ public final class AutoTagger {
             if (cover == null || cover.length == 0) {
                 result.message = "已写入（封面未获取）";
             } else if (!coverWritten) {
-                result.message = "已写入（封面写入失败）";
+                String reason = TagIO.lastArtworkError();
+                result.message = "已写入（封面写入失败"
+                        + (reason.isEmpty() ? "" : "：" + reason) + "）";
             } else {
                 result.message = "已写入";
             }

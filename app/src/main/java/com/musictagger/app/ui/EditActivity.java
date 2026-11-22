@@ -392,7 +392,7 @@ public class EditActivity extends AppCompatActivity {
                 if (errorFinal == null) {
                     song = s;
                     if (artwork != null && artwork.length > 0 && !coverOk[0]) {
-                        snack("标签已写入，但封面写入失败");
+                        showError("标签已写入，但封面写入失败", TagIO.lastArtworkError());
                     } else {
                         snack("已写入标签");
                     }
