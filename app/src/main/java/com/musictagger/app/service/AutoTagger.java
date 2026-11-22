@@ -34,12 +34,15 @@ public final class AutoTagger {
         public final List<Track> candidates;
         public final String existingTitle;
         public final String existingArtist;
+        public final boolean hasArtwork;
         public final String error;
 
-        MatchOutcome(List<Track> candidates, String existingTitle, String existingArtist, String error) {
+        MatchOutcome(List<Track> candidates, String existingTitle, String existingArtist,
+                     boolean hasArtwork, String error) {
             this.candidates = candidates;
             this.existingTitle = existingTitle;
             this.existingArtist = existingArtist;
+            this.hasArtwork = hasArtwork;
             this.error = error;
         }
     }
@@ -76,15 +79,15 @@ public final class AutoTagger {
                 guesses.add(new FilenameParser.Guess(title, artist));
             }
             if (guesses.isEmpty()) {
-                return new MatchOutcome(Collections.emptyList(), title, artist, "文件名无法识别");
+                return new MatchOutcome(Collections.emptyList(), title, artist, song.hasArtwork, "文件名无法识别");
             }
             FilenameParser.Guess fileGuess = FilenameParser.parse(song.displayName);
             String query = fileGuess.query.isEmpty() ? ProviderHub.queryFor(title, artist) : fileGuess.query;
             List<Track> hits = ProviderHub.searchFor(query, guesses);
-            return new MatchOutcome(hits, title, artist, null);
+            return new MatchOutcome(hits, title, artist, song.hasArtwork, null);
         } catch (Throwable e) {
             Diag.error("搜索", e);
-            return new MatchOutcome(Collections.emptyList(), "", "", Diag.describe("搜索", e));
+            return new MatchOutcome(Collections.emptyList(), "", "", false, Diag.describe("搜索", e));
         } finally {
             if (cache != null) {
                 //noinspection ResultOfMethodCallIgnored

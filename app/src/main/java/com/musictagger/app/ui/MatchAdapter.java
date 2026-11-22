@@ -68,6 +68,7 @@ public class MatchAdapter extends RecyclerView.Adapter<MatchAdapter.Holder> {
         int fg;
         switch (item.status) {
             case MatchItem.READY:
+            case MatchItem.MISSING_ART:
                 bg = ContextCompat.getColor(ctx, R.color.brand_container);
                 fg = ContextCompat.getColor(ctx, R.color.brand_on_container);
                 break;

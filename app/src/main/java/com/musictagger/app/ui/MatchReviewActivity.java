@@ -148,6 +148,7 @@ public class MatchReviewActivity extends AppCompatActivity {
     private void applyOutcome(MatchItem item, AutoTagger.MatchOutcome outcome) {
         item.existingTitle = outcome.existingTitle;
         item.existingArtist = outcome.existingArtist;
+        item.hasArtwork = outcome.hasArtwork;
         item.candidates = outcome.candidates;
         if (outcome.error != null) {
             item.status = MatchItem.ERROR;
@@ -175,9 +176,14 @@ public class MatchReviewActivity extends AppCompatActivity {
                 continue;
             }
             Track track = item.chosenTrack();
-            if (DuplicateUtil.sameSong(item.existingTitle, item.existingArtist, track)) {
+            boolean sameSong = DuplicateUtil.sameSong(item.existingTitle, item.existingArtist, track);
+            if (sameSong && item.hasArtwork) {
                 item.status = MatchItem.DUPLICATE_TAG;
-                item.note = "已有相同标签，跳过";
+                item.note = "标签和封面都已存在，跳过";
+            } else if (sameSong) {
+                // Tags are right but the artwork is missing: still worth writing.
+                item.status = MatchItem.MISSING_ART;
+                item.note = "标签已完整，补写封面";
             } else {
                 String key = track.source + ":" + track.id;
                 if (!seen.add(key)) {
@@ -188,7 +194,7 @@ public class MatchReviewActivity extends AppCompatActivity {
                     item.note = "";
                 }
             }
-            if (item.status == MatchItem.READY) {
+            if (item.writable()) {
                 ready++;
             }
         }

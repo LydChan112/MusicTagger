@@ -13,11 +13,14 @@ public class MatchItem {
     public static final int DUPLICATE_BATCH = 2;
     public static final int NO_MATCH = 3;
     public static final int ERROR = 4;
+    /** Tags already match, but the file has no artwork: still worth writing. */
+    public static final int MISSING_ART = 5;
 
     public DocumentFile file;
     public String fileName = "";
     public String existingTitle = "";
     public String existingArtist = "";
+    public boolean hasArtwork;
     public List<Track> candidates = new ArrayList<>();
     public int chosen = -1;
     public int status = NO_MATCH;
@@ -28,13 +31,15 @@ public class MatchItem {
     }
 
     public boolean writable() {
-        return status == READY && chosenTrack() != null;
+        return (status == READY || status == MISSING_ART) && chosenTrack() != null;
     }
 
     public String statusLabel() {
         switch (status) {
             case READY:
                 return "待写入";
+            case MISSING_ART:
+                return "补封面";
             case DUPLICATE_TAG:
                 return "重复·跳过";
             case DUPLICATE_BATCH:
