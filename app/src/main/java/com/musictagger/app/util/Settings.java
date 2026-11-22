@@ -11,10 +11,15 @@ public final class Settings {
     private static final String KEY_SEARCH_THREADS = "search_threads";
     private static final String KEY_DOWNLOAD_THREADS = "download_threads";
     private static final String KEY_ARTIST_SEPARATOR = "artist_separator";
+    private static final String KEY_COVER_SIZE = "cover_size";
 
     public static final int DEFAULT_SEARCH_THREADS = 2;
     public static final int DEFAULT_DOWNLOAD_THREADS = 3;
     public static final String DEFAULT_ARTIST_SEPARATOR = "/";
+    public static final int DEFAULT_COVER_SIZE = 800;
+
+    /** Pixels requested from the sources; 0 means the largest available. */
+    public static final int[] COVER_SIZE_OPTIONS = {0, 1200, 1000, 800, 500, 300};
 
     private Settings() {
     }
@@ -49,5 +54,13 @@ public final class Settings {
 
     public static void setArtistSeparator(Context context, String separator) {
         prefs(context).edit().putString(KEY_ARTIST_SEPARATOR, separator == null ? "" : separator).apply();
+    }
+
+    public static int coverSize(Context context) {
+        return prefs(context).getInt(KEY_COVER_SIZE, DEFAULT_COVER_SIZE);
+    }
+
+    public static void setCoverSize(Context context, int pixels) {
+        prefs(context).edit().putInt(KEY_COVER_SIZE, Math.max(0, pixels)).apply();
     }
 }

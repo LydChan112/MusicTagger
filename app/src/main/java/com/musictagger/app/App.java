@@ -23,5 +23,6 @@ public class App extends Application {
         int threads = Settings.downloadThreads(this);
         ProviderHub.setDownloadThreads(threads);
         CoverLoader.setThreads(threads);
+        com.musictagger.app.util.CoverOptions.setSize(Settings.coverSize(this));
     }
 }

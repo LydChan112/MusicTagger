@@ -74,7 +74,8 @@ public class KugouProvider implements MusicProvider {
         if (template == null) {
             return null;
         }
-        return Http.getBytes(template.replace("{size}", "1000"), null);
+        int size = com.musictagger.app.util.CoverOptions.size();
+        return Http.getBytes(template.replace("{size}", String.valueOf(size <= 0 ? 1000 : size)), null);
     }
 
     @Override

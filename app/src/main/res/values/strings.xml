@@ -56,6 +56,8 @@
     <string name="settings_artist_separator_custom">自定义…</string>
     <string name="settings_artist_separator_title">自定义艺术家分隔符</string>
     <string name="settings_artist_separator_edit">分隔符</string>
+    <string name="settings_cover_size">封面下载分辨率</string>
+    <string name="settings_cover_size_hint">按所选分辨率向音源请求封面；「原图」取音源最大尺寸。写入前仍会按 1 MB 上限压缩。</string>
     <string name="settings_github">GitHub 项目</string>
     <string name="settings_version">版本</string>
     <string name="settings_ai_note">本项目由 AI 编程助手（DeepSeek）协作完成，详见仓库 README 的「AI 使用说明」。</string>

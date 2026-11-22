@@ -12,7 +12,7 @@ import java.io.ByteArrayOutputStream;
 public final class CoverCompressor {
 
     /** Hard limit for artwork written into a file. */
-    public static final int MAX_BYTES = 500 * 1024;
+    public static final int MAX_BYTES = 1024 * 1024;
 
     private static final int[] QUALITY_STEPS = {90, 80, 70, 60, 50};
 

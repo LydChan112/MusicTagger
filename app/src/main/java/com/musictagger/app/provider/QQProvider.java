@@ -92,9 +92,26 @@ public class QQProvider implements MusicProvider {
         return "https://y.gtimg.cn/music/photo_new/T002R" + size + "x" + size + "M000" + albumMid + ".jpg";
     }
 
+    /** QQ only serves a fixed set of sizes; snap the preference to the closest one. */
+    private static int snapSize(int requested) {
+        if (requested <= 0) {
+            return 800;
+        }
+        if (requested >= 800) {
+            return 800;
+        }
+        if (requested >= 500) {
+            return 500;
+        }
+        if (requested >= 300) {
+            return 300;
+        }
+        return 150;
+    }
+
     @Override
     public byte[] cover(Track track) throws Exception {
-        String url = coverUrl(track, 800);
+        String url = coverUrl(track, snapSize(com.musictagger.app.util.CoverOptions.size()));
         return url == null ? null : Http.getBytes(url, HEADERS);
     }
 

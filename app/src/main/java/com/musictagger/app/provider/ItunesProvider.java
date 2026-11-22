@@ -55,8 +55,12 @@ public class ItunesProvider implements MusicProvider {
         if (url == null || url.isEmpty()) {
             return null;
         }
+        int preferred = com.musictagger.app.util.CoverOptions.size();
+        int[] ladder = preferred <= 0
+                ? new int[]{1200, 600, 300, 100}
+                : new int[]{preferred, Math.max(300, preferred / 2), 300, 100};
         // Apple caps artwork at the original size; walk down until one variant answers.
-        for (int size : new int[]{1200, 600, 300, 100}) {
+        for (int size : ladder) {
             try {
                 byte[] data = Http.getBytes(sized(url, size), null);
                 if (data != null && data.length > 0) {

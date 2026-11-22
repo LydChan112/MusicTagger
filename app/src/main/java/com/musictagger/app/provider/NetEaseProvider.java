@@ -101,12 +101,16 @@ public class NetEaseProvider implements MusicProvider {
         return base + "?param=" + size + "y" + size;
     }
 
-    /** Original file first; if the CDN refuses it, fall back to a large scaled variant. */
+    /** Original file first when "largest" is chosen; otherwise the requested square size. */
     @Override
     public byte[] cover(Track track) throws Exception {
         String pic = picUrl(track);
         if (pic == null) {
             return null;
+        }
+        int size = com.musictagger.app.util.CoverOptions.size();
+        if (size > 0) {
+            return Http.getBytes(withParam(pic, size), HEADERS);
         }
         String original = pic.contains("?") ? pic.substring(0, pic.indexOf('?')) : pic;
         try {

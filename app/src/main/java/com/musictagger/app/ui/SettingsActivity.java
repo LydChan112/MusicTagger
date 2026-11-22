@@ -21,6 +21,8 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String[] SEPARATORS = {"/", "、", "; ", " & ", ", ", " feat. "};
     private static final String CUSTOM = "自定义…";
 
+    private static final String[] COVER_SIZES = {"原图（最大）", "1200 px", "1000 px", "800 px", "500 px", "300 px"};
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -30,10 +32,30 @@ public class SettingsActivity extends AppCompatActivity {
 
         setupSliders();
         setupArtistSeparator();
+        setupCoverSize();
 
         binding.githubUrl.setText(REPO_URL.replace("https://", ""));
         binding.rowGithub.setOnClickListener(v -> openRepo());
         binding.version.setText(versionName());
+    }
+
+    private void setupCoverSize() {
+        binding.coverSize.setAdapter(new android.widget.ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, COVER_SIZES));
+        int current = Settings.coverSize(this);
+        int index = 0;
+        for (int i = 0; i < Settings.COVER_SIZE_OPTIONS.length; i++) {
+            if (Settings.COVER_SIZE_OPTIONS[i] == current) {
+                index = i;
+                break;
+            }
+        }
+        binding.coverSize.setText(COVER_SIZES[index], false);
+        binding.coverSize.setOnItemClickListener((parent, view, position, id) -> {
+            int pixels = Settings.COVER_SIZE_OPTIONS[position];
+            Settings.setCoverSize(this, pixels);
+            com.musictagger.app.util.CoverOptions.setSize(pixels);
+        });
     }
 
     private void setupArtistSeparator() {
