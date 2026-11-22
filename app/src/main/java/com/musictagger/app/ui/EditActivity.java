@@ -290,7 +290,7 @@ public class EditActivity extends AppCompatActivity {
                 });
                 return;
             }
-            byte[] art = ProviderHub.coverWithDeadline(best, best.title, best.artist, 12000);
+            byte[] art = ProviderHub.coverWithDeadline(best, best.title, best.artist, 20000);
             Lyrics ly = ProviderHub.lyricsWithDeadline(best, best.title, best.artist, best.durationSec, 12000);
             main.post(() -> {
                 applyTrack(best);
@@ -336,7 +336,7 @@ public class EditActivity extends AppCompatActivity {
         setBusy(true);
         setStatus("下载封面与歌词…");
         io.execute(() -> {
-            byte[] art = ProviderHub.coverWithDeadline(t, t.title, t.artist, 12000);
+            byte[] art = ProviderHub.coverWithDeadline(t, t.title, t.artist, 20000);
             Lyrics ly = ProviderHub.lyricsWithDeadline(t, t.title, t.artist, t.durationSec, 12000);
             main.post(() -> {
                 if (art != null && art.length > 0) {
@@ -376,8 +376,9 @@ public class EditActivity extends AppCompatActivity {
         io.execute(() -> {
             String step = "写入标签";
             String error = null;
+            final boolean[] coverOk = {false};
             try {
-                TagIO.write(cache, s, artwork);
+                coverOk[0] = TagIO.write(cache, s, artwork);
                 step = "写回原文件";
                 SafStore.copyFromCache(this, cache, doc, treeUri);
             } catch (Throwable e) {
@@ -390,7 +391,11 @@ public class EditActivity extends AppCompatActivity {
                 setStatus(null);
                 if (errorFinal == null) {
                     song = s;
-                    snack("已写入标签");
+                    if (artwork != null && artwork.length > 0 && !coverOk[0]) {
+                        snack("标签已写入，但封面写入失败");
+                    } else {
+                        snack("已写入标签");
+                    }
                 } else {
                     showError("写入失败", errorFinal);
                 }

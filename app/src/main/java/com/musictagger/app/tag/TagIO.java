@@ -83,7 +83,8 @@ public final class TagIO {
         }
     }
 
-    public static void write(File file, Song song, byte[] artwork) throws Exception {
+    /** @return false only when artwork was supplied but could not be embedded. */
+    public static boolean write(File file, Song song, byte[] artwork) throws Exception {
         AudioFile af = open(file);
         Tag tag = af.getTagOrCreateAndSetDefault();
 
@@ -99,10 +100,12 @@ public final class TagIO {
             put(tag, FieldKey.LYRICS, song.lyrics);
         }
 
+        boolean artworkWritten = true;
         if (artwork != null && artwork.length > 0) {
-            writeArtwork(tag, artwork);
+            artworkWritten = writeArtwork(tag, artwork);
         }
         af.commit();
+        return artworkWritten;
     }
 
     /**
@@ -134,7 +137,7 @@ public final class TagIO {
         }
     }
 
-    private static void writeArtwork(Tag tag, byte[] data) {
+    private static boolean writeArtwork(Tag tag, byte[] data) {
         String mime = mimeOf(data);
         int[] size = ImageUtil.size(data);
         if (tag instanceof FlacTag) {
@@ -144,8 +147,9 @@ public final class TagIO {
                 List<MetadataBlockDataPicture> images = flac.getImages();
                 images.clear();
                 images.add(new MetadataBlockDataPicture(data, 3, mime, "", size[0], size[1], 0, 0));
-                return;
-            } catch (Throwable ignored) {
+                return true;
+            } catch (Throwable e) {
+                com.musictagger.app.util.Diag.error("写入 FLAC 封面", e);
             }
         }
         try {
@@ -156,8 +160,10 @@ public final class TagIO {
             art.setHeight(size[1]);
             tag.deleteArtworkField();
             tag.setField(art);
-        } catch (Throwable ignored) {
-            // Container without image support: the text fields are still written.
+            return true;
+        } catch (Throwable e) {
+            com.musictagger.app.util.Diag.error("写入封面", e);
+            return false;
         }
     }
 

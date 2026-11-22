@@ -130,9 +130,12 @@ public final class AutoTagger {
             Future<byte[]> coverFuture = ProviderHub.submitCover(chosen, chosen.title, chosen.artist);
             Future<Lyrics> lyricsFuture = ProviderHub.submitLyrics(chosen, chosen.title, chosen.artist,
                     chosen.durationSec);
-            final long deadline = System.currentTimeMillis() + 8000;
-            byte[] cover = awaitCover(coverFuture, Math.max(1, deadline - System.currentTimeMillis()));
-            Lyrics lyrics = awaitLyrics(lyricsFuture, Math.max(1, deadline - System.currentTimeMillis()));
+            // Cover and lyrics run together but keep separate budgets: a large artwork
+            // download must not eat the lyrics allowance (and vice versa).
+            final long coverDeadline = System.currentTimeMillis() + 20000;
+            final long lyricsDeadline = System.currentTimeMillis() + 12000;
+            byte[] cover = awaitCover(coverFuture, Math.max(1, coverDeadline - System.currentTimeMillis()));
+            Lyrics lyrics = awaitLyrics(lyricsFuture, Math.max(1, lyricsDeadline - System.currentTimeMillis()));
             if (lyrics != null && !lyrics.isEmpty()) {
                 song.lyrics = lyrics.asText();
             }
@@ -144,7 +147,7 @@ public final class AutoTagger {
 
             step = "写入标签";
             report(progress, step);
-            TagIO.write(cache, song, cover);
+            boolean coverWritten = TagIO.write(cache, song, cover);
 
             step = "写回原文件";
             report(progress, step);
@@ -153,7 +156,13 @@ public final class AutoTagger {
             result.ok = true;
             result.title = song.title;
             result.artist = song.artist;
-            result.message = "已写入";
+            if (cover == null || cover.length == 0) {
+                result.message = "已写入（封面未获取）";
+            } else if (!coverWritten) {
+                result.message = "已写入（封面写入失败）";
+            } else {
+                result.message = "已写入";
+            }
             return result;
         } catch (Throwable e) {
             Diag.error(step, e);

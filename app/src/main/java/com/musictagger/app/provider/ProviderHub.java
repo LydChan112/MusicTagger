@@ -247,60 +247,53 @@ public final class ProviderHub {
 
     public static byte[] cover(Track best, String title, String artist) {
         // Everything written into a file goes through the 500 KB budget.
+        // Health flags only skip search work; a cover is worth one bounded attempt.
         return com.musictagger.app.util.CoverCompressor.limit(coverRaw(best, title, artist));
     }
 
     private static byte[] coverRaw(Track best, String title, String artist) {
-        if (best != null && isAvailable(best.source)) {
-            try {
-                byte[] art = providerFor(best).cover(best);
+        if (best != null) {
+            byte[] art = coverFrom(providerFor(best), best);
+            if (art != null) {
+                return art;
+            }
+        }
+        byte[] art = coverFromSearch(NETEASE, title, artist);
+        if (art != null) {
+            return art;
+        }
+        art = coverFromSearch(QQ, title, artist);
+        if (art != null) {
+            return art;
+        }
+        return coverFromSearch(ITUNES, title, artist);
+    }
+
+    private static byte[] coverFrom(MusicProvider provider, Track track) {
+        try {
+            byte[] art = provider.cover(track);
+            return art != null && art.length > 0 ? art : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static byte[] coverFromSearch(MusicProvider provider, String title, String artist) {
+        try {
+            List<Track> hits = provider.search(queryFor(title, artist));
+            if (hits != null && !hits.isEmpty()) {
+                byte[] art = provider.cover(hits.get(0));
                 if (art != null && art.length > 0) {
                     return art;
                 }
-            } catch (Exception ignored) {
             }
-        }
-        if (isAvailable(NETEASE.name())) {
-            try {
-                List<Track> hits = NETEASE.search(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    byte[] art = NETEASE.cover(hits.get(0));
-                    if (art != null && art.length > 0) {
-                        return art;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        if (isAvailable(QQ.name())) {
-            try {
-                List<Track> hits = QQ.search(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    byte[] art = QQ.cover(hits.get(0));
-                    if (art != null && art.length > 0) {
-                        return art;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        if (isAvailable(ITUNES.name())) {
-            try {
-                List<Track> hits = ITUNES.search(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    byte[] art = ITUNES.cover(hits.get(0));
-                    if (art != null && art.length > 0) {
-                        return art;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
+        } catch (Exception ignored) {
         }
         return null;
     }
 
     public static Lyrics lyrics(Track best, String title, String artist, int durationSec) {
-        if (best != null && isAvailable(best.source)) {
+        if (best != null) {
             try {
                 Lyrics l = providerFor(best).lyrics(best);
                 if (l != null && !l.isEmpty()) {
@@ -309,51 +302,45 @@ public final class ProviderHub {
             } catch (Exception ignored) {
             }
         }
-        if (isAvailable(LRCLIB.name())) {
-            try {
-                Lyrics l = LRCLIB.fetch(title, artist, durationSec);
+        try {
+            Lyrics l = LRCLIB.fetch(title, artist, durationSec);
+            if (l != null && !l.isEmpty()) {
+                return l;
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            List<LrclibProvider.Hit> hits = LRCLIB.searchRich(queryFor(title, artist));
+            if (hits != null && !hits.isEmpty()) {
+                LrclibProvider.Hit h = hits.get(0);
+                Lyrics l = new Lyrics();
+                l.source = LRCLIB.name();
+                l.lrc = h.synced != null && !h.synced.isEmpty() ? h.synced : h.plain;
+                if (l.lrc != null && !l.lrc.trim().isEmpty()) {
+                    return l;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            List<Track> hits = NETEASE.search(queryFor(title, artist));
+            if (hits != null && !hits.isEmpty()) {
+                Lyrics l = NETEASE.lyrics(hits.get(0));
                 if (l != null && !l.isEmpty()) {
                     return l;
                 }
-            } catch (Exception ignored) {
             }
-            try {
-                List<LrclibProvider.Hit> hits = LRCLIB.searchRich(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    LrclibProvider.Hit h = hits.get(0);
-                    Lyrics l = new Lyrics();
-                    l.source = LRCLIB.name();
-                    l.lrc = h.synced != null && !h.synced.isEmpty() ? h.synced : h.plain;
-                    if (l.lrc != null && !l.lrc.trim().isEmpty()) {
-                        return l;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
+        } catch (Exception ignored) {
         }
-        if (isAvailable(NETEASE.name())) {
-            try {
-                List<Track> hits = NETEASE.search(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    Lyrics l = NETEASE.lyrics(hits.get(0));
-                    if (l != null && !l.isEmpty()) {
-                        return l;
-                    }
+        try {
+            List<Track> hits = QQ.search(queryFor(title, artist));
+            if (hits != null && !hits.isEmpty()) {
+                Lyrics l = QQ.lyrics(hits.get(0));
+                if (l != null && !l.isEmpty()) {
+                    return l;
                 }
-            } catch (Exception ignored) {
             }
-        }
-        if (isAvailable(QQ.name())) {
-            try {
-                List<Track> hits = QQ.search(queryFor(title, artist));
-                if (hits != null && !hits.isEmpty()) {
-                    Lyrics l = QQ.lyrics(hits.get(0));
-                    if (l != null && !l.isEmpty()) {
-                        return l;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
+        } catch (Exception ignored) {
         }
         return null;
     }
