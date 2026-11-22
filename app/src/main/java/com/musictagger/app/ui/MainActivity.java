@@ -230,6 +230,7 @@ public class MainActivity extends AppCompatActivity {
         boolean selecting = adapter != null && adapter.isSelectionMode();
         menu.findItem(R.id.action_select).setVisible(!selecting && !songs.isEmpty());
         menu.findItem(R.id.action_network).setVisible(!selecting);
+        menu.findItem(R.id.action_settings).setVisible(!selecting);
         menu.findItem(R.id.action_theme).setVisible(!selecting);
         menu.findItem(R.id.action_select_all).setVisible(selecting);
         menu.findItem(R.id.action_batch).setVisible(selecting);
@@ -267,6 +268,10 @@ public class MainActivity extends AppCompatActivity {
         }
         if (id == R.id.action_network) {
             runDiagnostics();
+            return true;
+        }
+        if (id == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
             return true;
         }
         if (id == R.id.action_theme) {

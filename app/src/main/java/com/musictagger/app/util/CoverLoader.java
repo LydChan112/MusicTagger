@@ -16,7 +16,21 @@ import java.util.concurrent.Executors;
 public final class CoverLoader {
 
     private static final LruCache<String, Bitmap> CACHE = new LruCache<>(60);
-    private static final ExecutorService POOL = Executors.newFixedThreadPool(2);
+    private static volatile ExecutorService POOL = Executors.newFixedThreadPool(2);
+
+    /** Rebuilds the thumbnail pool; called at startup and when the setting changes. */
+    public static synchronized void setThreads(int threads) {
+        int size = Math.max(1, Math.min(8, threads));
+        if (POOL instanceof java.util.concurrent.ThreadPoolExecutor) {
+            int current = ((java.util.concurrent.ThreadPoolExecutor) POOL).getCorePoolSize();
+            if (current == size) {
+                return;
+            }
+        }
+        ExecutorService old = POOL;
+        POOL = Executors.newFixedThreadPool(size);
+        old.shutdown();
+    }
 
     private CoverLoader() {
     }

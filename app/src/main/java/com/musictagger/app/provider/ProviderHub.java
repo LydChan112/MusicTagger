@@ -34,7 +34,21 @@ public final class ProviderHub {
     private static final MusicProvider[] ALL = {NETEASE, KUGOU, QQ, ITUNES};
 
     private static final ExecutorService SEARCH_POOL = Executors.newFixedThreadPool(5);
-    private static final ExecutorService IO_POOL = Executors.newCachedThreadPool();
+    private static volatile ExecutorService IO_POOL = Executors.newFixedThreadPool(3);
+
+    /** Rebuilds the download pool; called at startup and when the setting changes. */
+    public static synchronized void setDownloadThreads(int threads) {
+        int size = Math.max(1, Math.min(8, threads));
+        if (IO_POOL instanceof java.util.concurrent.ThreadPoolExecutor) {
+            int current = ((java.util.concurrent.ThreadPoolExecutor) IO_POOL).getCorePoolSize();
+            if (current == size) {
+                return;
+            }
+        }
+        ExecutorService old = IO_POOL;
+        IO_POOL = Executors.newFixedThreadPool(size);
+        old.shutdown();
+    }
 
     /** null = not probed yet (treated as usable). */
     private static final Map<String, Boolean> AVAILABLE = new ConcurrentHashMap<>();
@@ -165,6 +179,15 @@ public final class ProviderHub {
     }
 
     public static List<Track> searchFor(String query, List<FilenameParser.Guess> guesses) {
+        return searchFor(query, guesses, 0, 0);
+    }
+
+    /**
+     * @param localDurationSec duration of the local file, 0 when unknown
+     * @param toleranceSec     allowed difference; 0 disables duration filtering
+     */
+    public static List<Track> searchFor(String query, List<FilenameParser.Guess> guesses,
+                                        int localDurationSec, int toleranceSec) {
         final List<Track> all = new ArrayList<>();
         if (query == null || query.trim().isEmpty()) {
             return all;
@@ -206,6 +229,16 @@ public final class ProviderHub {
         }
         for (Track t : all) {
             t.score = bestScore(guesses, t);
+        }
+        // Duration filter: drops covers/live versions/instrumentals that only match by name.
+        if (toleranceSec > 0 && localDurationSec > 0) {
+            java.util.Iterator<Track> it = all.iterator();
+            while (it.hasNext()) {
+                Track t = it.next();
+                if (t.durationSec > 0 && Math.abs(t.durationSec - localDurationSec) > toleranceSec) {
+                    it.remove();
+                }
+            }
         }
         Collections.sort(all, new Comparator<Track>() {
             @Override

@@ -19,13 +19,17 @@ import com.musictagger.app.provider.ProviderHub;
 import com.musictagger.app.service.AutoTagger;
 import com.musictagger.app.service.BatchSession;
 import com.musictagger.app.util.DuplicateUtil;
+import com.musictagger.app.util.Settings;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Two-phase batch flow: search everything first, show the matches with covers,
@@ -102,29 +106,35 @@ public class MatchReviewActivity extends AppCompatActivity {
                 });
                 return;
             }
+            int threads = Settings.searchThreads(this);
+            ExecutorService pool = Executors.newFixedThreadPool(threads);
+            CompletionService<Object[]> completion = new ExecutorCompletionService<>(pool);
             for (int i = 0; i < items.size(); i++) {
-                if (cancelled) {
-                    return;
-                }
                 final int index = i;
                 final MatchItem item = items.get(i);
-                main.post(() -> binding.summary.setText(
-                        getString(R.string.searching_n, index + 1, items.size())));
-                AutoTagger.MatchOutcome outcome = AutoTagger.match(this, item.file);
-                item.existingTitle = outcome.existingTitle;
-                item.existingArtist = outcome.existingArtist;
-                item.candidates = outcome.candidates;
-                if (outcome.error != null) {
-                    item.status = MatchItem.ERROR;
-                    item.note = outcome.error;
-                    item.chosen = -1;
-                } else if (outcome.candidates.isEmpty()) {
-                    item.status = MatchItem.NO_MATCH;
-                    item.chosen = -1;
-                } else {
-                    item.chosen = 0;
+                completion.submit(() -> new Object[]{index, AutoTagger.match(this, item.file)});
+            }
+            int finished = 0;
+            try {
+                for (int i = 0; i < items.size(); i++) {
+                    if (cancelled) {
+                        break;
+                    }
+                    Future<Object[]> future = completion.take();
+                    Object[] result = future.get();
+                    final int index = (Integer) result[0];
+                    applyOutcome(items.get(index), (AutoTagger.MatchOutcome) result[1]);
+                    finished++;
+                    final int doneCount = finished;
+                    main.post(() -> {
+                        binding.summary.setText(getString(R.string.searching_n, doneCount, items.size()));
+                        adapter.notifyItemChanged(index);
+                    });
                 }
-                main.post(() -> adapter.notifyItemChanged(index));
+            } catch (Exception ignored) {
+                // Cancelled or interrupted: keep whatever finished.
+            } finally {
+                pool.shutdownNow();
             }
             main.post(() -> {
                 binding.progress.setVisibility(View.GONE);
@@ -132,6 +142,22 @@ public class MatchReviewActivity extends AppCompatActivity {
                 recomputeAll();
             });
         });
+    }
+
+    private void applyOutcome(MatchItem item, AutoTagger.MatchOutcome outcome) {
+        item.existingTitle = outcome.existingTitle;
+        item.existingArtist = outcome.existingArtist;
+        item.candidates = outcome.candidates;
+        if (outcome.error != null) {
+            item.status = MatchItem.ERROR;
+            item.note = outcome.error;
+            item.chosen = -1;
+        } else if (outcome.candidates.isEmpty()) {
+            item.status = MatchItem.NO_MATCH;
+            item.chosen = -1;
+        } else {
+            item.chosen = 0;
+        }
     }
 
     /** Re-evaluates duplicates after every candidate change. */
