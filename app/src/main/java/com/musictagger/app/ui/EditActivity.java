@@ -34,8 +34,10 @@ import com.musictagger.app.provider.ProviderHub;
 import com.musictagger.app.storage.SafStore;
 import com.musictagger.app.tag.TagIO;
 import com.musictagger.app.util.Diag;
+import com.musictagger.app.util.ArtistUtil;
 import com.musictagger.app.util.FilenameParser;
 import com.musictagger.app.util.FormatSniffer;
+import com.musictagger.app.util.Settings;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -355,7 +357,7 @@ public class EditActivity extends AppCompatActivity {
     private void applyTrack(Track t) {
         b.inputTitle.setText(t.title);
         if (t.artist != null && !t.artist.isEmpty()) {
-            b.inputArtist.setText(t.artist);
+            b.inputArtist.setText(ArtistUtil.normalize(t.artist, Settings.artistSeparator(this)));
         }
         if (t.album != null && !t.album.isEmpty()) {
             b.inputAlbum.setText(t.album);
@@ -466,7 +468,7 @@ public class EditActivity extends AppCompatActivity {
         s.uri = fileUri;
         s.displayName = displayName;
         s.title = text(b.inputTitle);
-        s.artist = text(b.inputArtist);
+        s.artist = ArtistUtil.normalize(text(b.inputArtist), Settings.artistSeparator(this));
         s.album = text(b.inputAlbum);
         s.albumArtist = text(b.inputAlbumArtist);
         s.year = text(b.inputYear);

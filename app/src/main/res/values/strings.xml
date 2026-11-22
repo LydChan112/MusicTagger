@@ -51,6 +51,11 @@
     <string name="settings_search_threads_hint">批量匹配时同时处理几首歌曲，数值越大越快，也越容易触发接口限流。</string>
     <string name="settings_download_threads">下载并行数</string>
     <string name="settings_download_threads_hint">同时下载封面/歌词的线程数。</string>
+    <string name="settings_artist_separator">艺术家分隔符</string>
+    <string name="settings_artist_separator_hint">写入标签时，多个艺术家之间用这个符号连接（如 周杰伦、费玉清）。源数据里的 / ; 、 | 会被统一替换。</string>
+    <string name="settings_artist_separator_custom">自定义…</string>
+    <string name="settings_artist_separator_title">自定义艺术家分隔符</string>
+    <string name="settings_artist_separator_edit">分隔符</string>
     <string name="settings_github">GitHub 项目</string>
     <string name="settings_version">版本</string>
     <string name="settings_ai_note">本项目由 AI 编程助手（DeepSeek）协作完成，详见仓库 README 的「AI 使用说明」。</string>

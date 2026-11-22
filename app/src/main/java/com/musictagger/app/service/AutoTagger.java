@@ -113,7 +113,8 @@ public final class AutoTagger {
 
             song.title = chosen.title;
             if (chosen.artist != null && !chosen.artist.isEmpty()) {
-                song.artist = chosen.artist;
+                song.artist = com.musictagger.app.util.ArtistUtil.normalize(chosen.artist,
+                        com.musictagger.app.util.Settings.artistSeparator(ctx));
             }
             if (chosen.album != null && !chosen.album.isEmpty()) {
                 song.album = chosen.album;
