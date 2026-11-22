@@ -32,14 +32,19 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
     }
 
     private final List<DocumentFile> data;
+    private final java.util.Map<String, Long> sizes;
+    private final java.util.Map<String, String> names;
     private final Listener listener;
     private final Set<String> selected = new HashSet<>();
     private boolean selectionMode;
     private boolean rangeMode;
     private int anchor = -1;
 
-    public SongAdapter(List<DocumentFile> data, Listener listener) {
+    public SongAdapter(List<DocumentFile> data, java.util.Map<String, Long> sizes,
+                       java.util.Map<String, String> names, Listener listener) {
         this.data = data;
+        this.sizes = sizes;
+        this.names = names;
         this.listener = listener;
     }
 
@@ -138,13 +143,24 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
     @Override
     public void onBindViewHolder(@NonNull Holder holder, int position) {
         DocumentFile f = data.get(position);
-        String name = f.getName() == null ? "" : f.getName();
-        holder.binding.title.setText(name);
-        String size = Formatter.formatShortFileSize(holder.itemView.getContext(), f.length());
-        String ext = SafStore.extensionOf(name).toUpperCase();
-        holder.binding.subtitle.setText(ext.isEmpty() ? size : ext + "  ·  " + size);
-
         String key = f.getUri().toString();
+        // Name and size come from the scan: DocumentFile.getName()/length() would hit the
+        // provider on the UI thread for every bind.
+        String name = names == null ? null : names.get(key);
+        if (name == null) {
+            name = f.getName() == null ? "" : f.getName();
+        }
+        holder.binding.title.setText(name);
+        Long length = sizes == null ? null : sizes.get(key);
+        String sizeText = length != null && length > 0
+                ? Formatter.formatShortFileSize(holder.itemView.getContext(), length) : "";
+        String ext = SafStore.extensionOf(name).toUpperCase();
+        if (sizeText.isEmpty()) {
+            holder.binding.subtitle.setText(ext);
+        } else {
+            holder.binding.subtitle.setText(ext.isEmpty() ? sizeText : ext + "  ·  " + sizeText);
+        }
+
         boolean checked = selected.contains(key);
         boolean isAnchor = rangeMode && position == anchor;
         Context ctx = holder.itemView.getContext();

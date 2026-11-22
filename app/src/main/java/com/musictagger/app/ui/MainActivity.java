@@ -43,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<DocumentFile> songs = new ArrayList<>();
+    private final java.util.Map<String, Long> sizes = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<String, String> names = new java.util.concurrent.ConcurrentHashMap<>();
     private SongAdapter adapter;
     private ActivityResultLauncher<Uri> picker;
     private Uri treeUri;
@@ -54,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbar);
 
-        adapter = new SongAdapter(songs, new SongAdapter.Listener() {
+        adapter = new SongAdapter(songs, sizes, names, new SongAdapter.Listener() {
             @Override
             public void onClick(DocumentFile file, int position) {
                 if (adapter.isRangeMode()) {
@@ -121,6 +123,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void load(Uri uri) {
         treeUri = uri;
+        sizes.clear();
+        names.clear();
         setBusy(true);
 
         // Reading the cache and starting the scan both touch the provider, so keep them
@@ -128,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
         final List<DocumentFile> fresh = java.util.Collections.synchronizedList(new ArrayList<>());
         final long[] lastUpdate = {0};
         io.execute(() -> {
-            List<DocumentFile> cached = SafStore.readCache(this, uri);
+            List<DocumentFile> cached = SafStore.readCache(this, uri, names, sizes);
             if (!cached.isEmpty()) {
                 final List<DocumentFile> cachedSorted = sortByName(cached);
                 main.post(() -> {
@@ -141,8 +145,10 @@ public class MainActivity extends AppCompatActivity {
 
             SafStore.scanTree(this, uri, new SafStore.ScanListener() {
                 @Override
-                public void onFile(DocumentFile file) {
+                public void onFile(DocumentFile file, String name, long size) {
                     fresh.add(file);
+                    sizes.put(file.getUri().toString(), size);
+                    names.put(file.getUri().toString(), name);
                     long now = System.currentTimeMillis();
                     if (now - lastUpdate[0] > 200) {
                         lastUpdate[0] = now;
@@ -154,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onDone(int total) {
                     final List<DocumentFile> sorted = sortByName(new ArrayList<>(fresh));
-                    io.execute(() -> SafStore.writeCache(MainActivity.this, uri, sorted));
+                    io.execute(() -> SafStore.writeCache(MainActivity.this, uri, sorted, names, sizes));
                     main.post(() -> {
                         setBusy(false);
                         binding.toolbar.setSubtitle(null);
@@ -185,8 +191,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void openEditor(DocumentFile file) {
         Intent i = new Intent(this, EditActivity.class);
-        i.putExtra(EditActivity.EXTRA_URI, file.getUri().toString());
-        i.putExtra(EditActivity.EXTRA_NAME, file.getName());
+        String key = file.getUri().toString();
+        String name = names.get(key);
+        i.putExtra(EditActivity.EXTRA_URI, key);
+        i.putExtra(EditActivity.EXTRA_NAME, name != null ? name : file.getName());
         if (treeUri != null) {
             i.putExtra(EditActivity.EXTRA_TREE, treeUri.toString());
         }

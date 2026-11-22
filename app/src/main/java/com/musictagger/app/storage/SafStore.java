@@ -187,7 +187,7 @@ public final class SafStore {
     // ---------- fast scanning ----------
 
     public interface ScanListener {
-        void onFile(DocumentFile file);
+        void onFile(DocumentFile file, String name, long size);
 
         void onDone(int total);
     }
@@ -222,7 +222,8 @@ public final class SafStore {
                 String[] projection = {
                         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                         DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                        DocumentsContract.Document.COLUMN_MIME_TYPE};
+                        DocumentsContract.Document.COLUMN_MIME_TYPE,
+                        DocumentsContract.Document.COLUMN_SIZE};
                 Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, dirId);
                 try (android.database.Cursor cursor = ctx.getContentResolver()
                         .query(children, projection, null, null, null)) {
@@ -238,7 +239,7 @@ public final class SafStore {
                                 Uri docUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, id);
                                 DocumentFile file = DocumentFile.fromSingleUri(ctx, docUri);
                                 if (file != null) {
-                                    listener.onFile(file);
+                                    listener.onFile(file, name, cursor.getLong(3));
                                     count.incrementAndGet();
                                 }
                             }
@@ -267,7 +268,9 @@ public final class SafStore {
     }
 
     /** Previously scanned entries, rebuilt from document ids so opening the app is instant. */
-    public static List<DocumentFile> readCache(Context ctx, Uri treeUri) {
+    public static List<DocumentFile> readCache(Context ctx, Uri treeUri,
+                                               java.util.Map<String, String> names,
+                                               java.util.Map<String, Long> sizes) {
         List<DocumentFile> out = new ArrayList<>();
         File file = cacheFile(ctx, treeUri);
         if (!file.exists()) {
@@ -283,6 +286,12 @@ public final class SafStore {
                 DocumentFile df = DocumentFile.fromSingleUri(ctx, docUri);
                 if (df != null) {
                     out.add(df);
+                    if (sizes != null) {
+                        sizes.put(docUri.toString(), item.optLong("size", -1L));
+                    }
+                    if (names != null) {
+                        names.put(docUri.toString(), item.optString("name", ""));
+                    }
                 }
             }
         } catch (Throwable ignored) {
@@ -291,13 +300,21 @@ public final class SafStore {
         return out;
     }
 
-    public static void writeCache(Context ctx, Uri treeUri, List<DocumentFile> files) {
+    public static void writeCache(Context ctx, Uri treeUri, List<DocumentFile> files,
+                                  java.util.Map<String, String> names,
+                                  java.util.Map<String, Long> sizes) {
         try {
             org.json.JSONArray array = new org.json.JSONArray();
             for (DocumentFile f : files) {
                 org.json.JSONObject item = new org.json.JSONObject();
-                item.put("id", documentId(f));
-                item.put("name", f.getName() == null ? "" : f.getName());
+                String id = documentId(f);
+                item.put("id", id);
+                String cachedName = names == null ? null : names.get(f.getUri().toString());
+                item.put("name", cachedName != null ? cachedName : (f.getName() == null ? "" : f.getName()));
+                if (sizes != null) {
+                    Long size = sizes.get(f.getUri().toString());
+                    item.put("size", size == null ? -1L : size);
+                }
                 array.put(item);
             }
             File file = cacheFile(ctx, treeUri);
