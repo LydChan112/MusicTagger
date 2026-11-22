@@ -1,0 +1,20 @@
+# Build output
+*.apk
+*.aab
+dist/
+build/
+.gradle/
+
+# Local configuration
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Scratch used by the test tools
+tools/out*/
+tools/run/
+tools/*.class
+
+# Logs
+*.log

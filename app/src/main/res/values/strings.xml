@@ -1,0 +1,47 @@
+<resources>
+    <string name="app_name">MusicTagger</string>
+    <string name="pick_folder">选择音乐文件夹</string>
+    <string name="empty_title">还没有音乐文件</string>
+    <string name="empty_hint">选择一个文件夹，扫描其中的音频文件，然后在线匹配歌词、封面和歌曲信息。</string>
+    <string name="edit_title">编辑标签</string>
+    <string name="match_one_click">一键匹配并写入</string>
+    <string name="match_search">搜索候选</string>
+    <string name="save">保存</string>
+    <string name="lyrics">歌词</string>
+    <string name="field_title">标题</string>
+    <string name="field_artist">艺术家</string>
+    <string name="field_album">专辑</string>
+    <string name="field_album_artist">专辑艺术家</string>
+    <string name="field_year">年份</string>
+    <string name="field_track">音轨号</string>
+    <string name="field_genre">流派</string>
+    <string name="field_comment">注释</string>
+    <string name="search_hint">输入歌名或歌手</string>
+    <string name="about">关于</string>
+
+    <string name="select_mode">多选</string>
+    <string name="select_all">全选</string>
+    <string name="select_none">取消全选</string>
+    <string name="batch_write">一键写入</string>
+    <string name="cancel_selection">取消</string>
+    <string name="selected_count">已选 %1$d 首</string>
+    <string name="theme_toggle">深色模式</string>
+    <string name="batch_running">正在处理 %1$d/%2$d</string>
+    <string name="batch_done">完成：成功 %1$d 首，失败 %2$d 首</string>
+    <string name="batch_all_ok">%1$d 首全部写入成功</string>
+    <string name="parse_from_name">从文件名识别</string>
+    <string name="parse_hint">按文件名搜索</string>
+    <string name="self_test">写入自检</string>
+    <string name="stop_batch">停止</string>
+    <string name="network_diag">网络诊断</string>
+    <string name="match_review_title">匹配结果</string>
+    <string name="searching">正在搜索…</string>
+    <string name="searching_n">正在搜索 %1$d/%2$d</string>
+    <string name="review_hint">点任意一行可以换一个候选</string>
+    <string name="ready_count">待写入 %1$d 首 / 共 %2$d 首</string>
+    <string name="write_selected">写入</string>
+    <string name="write_selected_n">写入 %1$d 首</string>
+    <string name="writing_n">正在写入 %1$d/%2$d</string>
+    <string name="write_done">写入完成</string>
+    <string name="write_summary">成功 %1$d 首，失败 %2$d 首</string>
+</resources>
